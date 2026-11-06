@@ -32,7 +32,7 @@ final class SettingsStore: ObservableObject {
 
     init() {
         self.apiKey = KeychainStore.shared.get(Keys.apiKey) ?? ""
-        self.model = UserDefaults.standard.string(forKey: Keys.model) ?? "llama-3.3-70b-versatile"
+        self.model = UserDefaults.standard.string(forKey: Keys.model) ?? "openai/gpt-oss-20b"
         self.visionModel = UserDefaults.standard.string(forKey: Keys.visionModel) ?? "qwen/qwen3.8-27b"
         self.baseURL = UserDefaults.standard.string(forKey: Keys.baseURL) ?? "https://api.groq.com/openai/v1"
         self.systemPrompt = UserDefaults.standard.string(forKey: Keys.systemPrompt) ?? "You are a helpful assistant."
