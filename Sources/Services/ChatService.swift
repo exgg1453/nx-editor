@@ -1,21 +1,9 @@
 import Foundation
 
-struct ChatMessagePayload: Codable {
+struct OutgoingMessage {
     let role: String
-    let content: String
-}
-
-struct ChatCompletionRequest: Codable {
-    let model: String
-    let messages: [ChatMessagePayload]
-    let temperature: Double
-}
-
-struct ChatCompletionResponse: Codable {
-    struct Choice: Codable {
-        let message: ChatMessagePayload
-    }
-    let choices: [Choice]
+    let text: String
+    let images: [String]
 }
 
 enum ChatServiceError: LocalizedError {
@@ -43,7 +31,7 @@ struct ChatService {
     let baseURL: String
     let model: String
 
-    func send(messages: [ChatMessagePayload]) async throws -> String {
+    func send(messages: [OutgoingMessage]) async throws -> String {
         let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { throw ChatServiceError.missingApiKey }
 
@@ -56,9 +44,26 @@ struct ChatService {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
-        request.httpBody = try JSONEncoder().encode(
-            ChatCompletionRequest(model: model, messages: messages, temperature: 0.7)
-        )
+
+        var jsonMessages: [[String: Any]] = []
+        for message in messages {
+            if message.images.isEmpty {
+                jsonMessages.append(["role": message.role, "content": message.text])
+            } else {
+                var parts: [[String: Any]] = [["type": "text", "text": message.text]]
+                for imageURL in message.images {
+                    parts.append(["type": "image_url", "image_url": ["url": imageURL]])
+                }
+                jsonMessages.append(["role": message.role, "content": parts])
+            }
+        }
+
+        let payload: [String: Any] = [
+            "model": model,
+            "messages": jsonMessages,
+            "temperature": 0.7
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
         let (data, response) = try await URLSession.shared.data(for: request)
 
@@ -67,8 +72,13 @@ struct ChatService {
             throw ChatServiceError.server(text)
         }
 
-        let decoded = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
-        guard let content = decoded.choices.first?.message.content else {
+        guard
+            let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            let choices = object["choices"] as? [[String: Any]],
+            let first = choices.first,
+            let messageObject = first["message"] as? [String: Any],
+            let content = messageObject["content"] as? String
+        else {
             throw ChatServiceError.emptyResponse
         }
         return content

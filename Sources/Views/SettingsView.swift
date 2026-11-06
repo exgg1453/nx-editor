@@ -18,6 +18,12 @@ struct SettingsView: View {
                         .disableAutocorrection(true)
                 }
 
+                Section(header: Text("Vision Model"), footer: Text("Used automatically when you attach a photo or video frame.")) {
+                    TextField("Vision Model", text: $settings.visionModel)
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
+                }
+
                 Section(header: Text("Base URL"), footer: Text("OpenAI compatible endpoint. Change this to use another provider.")) {
                     TextField("https://api.groq.com/openai/v1", text: $settings.baseURL)
                         .autocapitalization(.none)

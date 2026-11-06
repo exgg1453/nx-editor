@@ -5,6 +5,7 @@ final class SettingsStore: ObservableObject {
     private enum Keys {
         static let apiKey = "groq_api_key"
         static let model = "model"
+        static let visionModel = "vision_model"
         static let baseURL = "base_url"
         static let systemPrompt = "system_prompt"
     }
@@ -15,6 +16,10 @@ final class SettingsStore: ObservableObject {
 
     @Published var model: String {
         didSet { UserDefaults.standard.set(model, forKey: Keys.model) }
+    }
+
+    @Published var visionModel: String {
+        didSet { UserDefaults.standard.set(visionModel, forKey: Keys.visionModel) }
     }
 
     @Published var baseURL: String {
@@ -28,6 +33,7 @@ final class SettingsStore: ObservableObject {
     init() {
         self.apiKey = KeychainStore.shared.get(Keys.apiKey) ?? ""
         self.model = UserDefaults.standard.string(forKey: Keys.model) ?? "llama-3.3-70b-versatile"
+        self.visionModel = UserDefaults.standard.string(forKey: Keys.visionModel) ?? "qwen/qwen3.8-27b"
         self.baseURL = UserDefaults.standard.string(forKey: Keys.baseURL) ?? "https://api.groq.com/openai/v1"
         self.systemPrompt = UserDefaults.standard.string(forKey: Keys.systemPrompt) ?? "You are a helpful assistant."
     }
