@@ -10,6 +10,7 @@ enum ChatServiceError: LocalizedError {
     case missingApiKey
     case invalidBaseURL
     case emptyResponse
+    case transient(String)
     case server(String)
 
     var errorDescription: String? {
@@ -20,6 +21,8 @@ enum ChatServiceError: LocalizedError {
             return "The base URL in Settings is not valid."
         case .emptyResponse:
             return "The server returned an empty response."
+        case .transient(let message):
+            return message
         case .server(let message):
             return message
         }
@@ -31,7 +34,25 @@ struct ChatService {
     let baseURL: String
     let model: String
 
+    private let maxAttempts = 4
+
     func send(messages: [OutgoingMessage]) async throws -> String {
+        var attempt = 0
+        while true {
+            do {
+                return try await performRequest(messages: messages)
+            } catch let ChatServiceError.transient(message) {
+                attempt += 1
+                if attempt >= maxAttempts {
+                    throw ChatServiceError.server(message)
+                }
+                let seconds = pow(2.0, Double(attempt - 1))
+                try? await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            }
+        }
+    }
+
+    private func performRequest(messages: [OutgoingMessage]) async throws -> String {
         let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { throw ChatServiceError.missingApiKey }
 
@@ -69,6 +90,9 @@ struct ChatService {
 
         if let http = response as? HTTPURLResponse, !(200 ... 299).contains(http.statusCode) {
             let text = String(data: data, encoding: .utf8) ?? "The request failed."
+            if http.statusCode == 429 || (500 ... 599).contains(http.statusCode) {
+                throw ChatServiceError.transient(text)
+            }
             throw ChatServiceError.server(text)
         }
 
